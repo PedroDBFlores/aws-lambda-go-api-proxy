@@ -19,7 +19,7 @@ type FiberLambdaALB struct {
 	app *fiber.App
 }
 
-func (f *FiberLambdaALB) Proxy(req events.ALBTargetGroupRequest) (events.ALBTargetGroupResponse, interface{}) {
+func (f *FiberLambdaALB) Proxy(req events.ALBTargetGroupRequest) (events.ALBTargetGroupResponse, error) {
 	httpReq, err := f.ProxyEventToHTTPRequest(req)
 	return f.proxyInternal(httpReq, err)
 }
