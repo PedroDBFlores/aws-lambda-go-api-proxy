@@ -2,6 +2,7 @@ package fiberadapter_test
 
 import (
 	"context"
+	"log"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/gofiber/fiber/v2"
@@ -313,6 +314,43 @@ var _ = Describe("FiberLambda tests", func() {
 			Expect(resp.MultiValueHeaders[fiber.HeaderContentLength]).To(Equal([]string{"77"}))
 			Expect(resp.MultiValueHeaders[fiber.HeaderConnection]).To(Equal([]string{"keep-alive"}))
 			Expect(resp.Body).To(Equal(""))
+		})
+	})
+})
+
+var _ = Describe("FiberLambdaALB tests", func() {
+	Context("Simple ping request", func() {
+		It("Proxies the event correctly", func() {
+			log.Println("Starting FiberLambdaALB test")
+			app := fiber.New()
+			app.Get("/ping", func(c *fiber.Ctx) error {
+				return c.JSON(fiber.Map{
+					"message": "pong",
+				})
+			})
+
+			adapter := fiberadaptor.NewALB(app)
+
+			req := events.ALBTargetGroupRequest{
+				HTTPMethod: "GET",
+				Path:       "/ping",
+				RequestContext: events.ALBTargetGroupRequestContext{
+					ELB: events.ELBContext{TargetGroupArn: "ad"},
+				}}
+
+			resp, err := adapter.Proxy(req)
+
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(200))
+			Expect(resp.Body).To(Equal(`{"message":"pong"}`))
+			Expect(len(resp.MultiValueHeaders)).To(Equal(1))
+
+			resp, err = adapter.Proxy(req)
+
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(200))
+			Expect(resp.Body).To(Equal(`{"message":"pong"}`))
+			Expect(len(resp.MultiValueHeaders)).To(Equal(1))
 		})
 	})
 })
