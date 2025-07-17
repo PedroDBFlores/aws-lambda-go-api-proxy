@@ -106,6 +106,7 @@ func (r *ProxyResponseWriterALB) GetProxyResponse() (events.ALBTargetGroupRespon
 		StatusCode:        r.status,
 		StatusDescription: http.StatusText(r.status),
 		MultiValueHeaders: http.Header(r.headers),
+		Headers:           map[string]string{},
 		Body:              output,
 		IsBase64Encoded:   isBase64,
 	}, nil
