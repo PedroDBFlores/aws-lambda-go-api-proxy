@@ -352,5 +352,31 @@ var _ = Describe("FiberLambdaALB tests", func() {
 			Expect(resp.Body).To(Equal(`{"message":"pong"}`))
 			Expect(len(resp.MultiValueHeaders)).To(Equal(1))
 		})
+
+		It("Proxies the event correctly and sets the required data in the context", func() {
+			app := fiber.New()
+			app.Get("/ping", func(c *fiber.Ctx) error {
+				return c.JSON(fiber.Map{
+					"message": "pong",
+				})
+			})
+
+			adapter := fiberadaptor.NewALB(app)
+
+			req := events.ALBTargetGroupRequest{
+				HTTPMethod: "GET",
+				Path:       "/ping",
+				RequestContext: events.ALBTargetGroupRequestContext{
+					ELB: events.ELBContext{TargetGroupArn: "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/my-targets/73e2d6bc24d8a067"},
+				}}
+			ctx := context.Background()
+
+			resp, err := adapter.ProxyWithContext(ctx, req)
+
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(200))
+			Expect(resp.Body).To(Equal(`{"message":"pong"}`))
+			Expect(len(resp.MultiValueHeaders)).To(Equal(1))
+		})
 	})
 })

@@ -1,33 +1,57 @@
+// Package fiberadapter adds Fiber support for the aws-severless-go-api library.
+// Uses the core package behind the scenes and exposes the New method to
+// get a new instance and Proxy method to send request to the Fiber app.
 package fiberadapter
 
 import (
+	"context"
 	"fmt"
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/awslabs/aws-lambda-go-api-proxy/core"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
-	"github.com/valyala/fasthttp"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"strings"
+
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/awslabs/aws-lambda-go-api-proxy/core"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/utils"
+	"github.com/valyala/fasthttp"
 )
 
+// GinLambdaALB makes it easy to send ALB proxy events to a Fiber
+// app. The library transforms the proxy event into an HTTP request and then
+// creates a proxy response object from the http.ResponseWriter
 type FiberLambdaALB struct {
 	core.RequestAccessorALB
 	app *fiber.App
 }
 
-func (f *FiberLambdaALB) Proxy(req events.ALBTargetGroupRequest) (events.ALBTargetGroupResponse, error) {
-	httpReq, err := f.ProxyEventToHTTPRequest(req)
-	return f.proxyInternal(httpReq, err)
-}
-
+// New creates a new instance of the FiberLambdaALB object.
+// Receives an initialized *fiber.App object - normally created with fiber.New().
+// It returns the initialized instance of the FiberLambdaALB object.
 func NewALB(app *fiber.App) *FiberLambdaALB {
 	return &FiberLambdaALB{
 		app: app,
 	}
+}
+
+// Proxy receives an ALB proxy event, transforms it into an http.Request
+// object, and sends it to the fiber.App for routing.
+// It returns a proxy response object generated from the http.ResponseWriter
+func (f *FiberLambdaALB) Proxy(req events.ALBTargetGroupRequest) (events.ALBTargetGroupResponse, error) {
+	httpReq, err := f.ProxyEventToHTTPRequest(req)
+
+	return f.proxyInternal(httpReq, err)
+}
+
+// ProxyWithContext receives an ALB proxy event, transforms it into an http.Request
+// object, and sends it to the fiber.App for routing.
+// It returns a proxy response object generated from the http.ResponseWriter
+func (f *FiberLambdaALB) ProxyWithContext(ctx context.Context, req events.ALBTargetGroupRequest) (events.ALBTargetGroupResponse, error) {
+	httpReq, err := f.EventToRequestWithContext(ctx, req)
+
+	return f.proxyInternal(httpReq, err)
 }
 
 func (f *FiberLambdaALB) proxyInternal(req *http.Request, err error) (events.ALBTargetGroupResponse, error) {
@@ -35,7 +59,7 @@ func (f *FiberLambdaALB) proxyInternal(req *http.Request, err error) (events.ALB
 	f.adaptor(respWriter, req)
 
 	proxyResponse, err := respWriter.GetProxyResponse()
-	fmt.Printf("proxyResponse: %+v\n", proxyResponse)
+
 	return proxyResponse, nil
 }
 
